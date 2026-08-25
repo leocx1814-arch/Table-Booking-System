@@ -230,7 +230,9 @@ INSERT INTO roles (id, role_name, description) VALUES
 (3, 'cleaner',   'Canteen cleaner who marks tables as clean or need cleaning'),
 (4, 'inspector', 'Student council or inspector who handles complaints and penalty points'),
 (5, 'admin',     'System administrator who manages settings, zones, tables and users'),
-(6, 'executive', 'School executive who views dashboards and occupancy reports');
+(6, 'executive', 'School executive who views dashboards and occupancy reports'),
+(7, 'officer',   'Officer user who reviews complaints with limited admin access'),
+(8, 'agency_officer', 'Agency officer for facility oversight and reporting');
 
 -- 5.2 Seed system_settings (runtime configuration read by backend services)
 INSERT INTO system_settings (setting_key, setting_value, description) VALUES
@@ -248,16 +250,18 @@ INSERT INTO canteen_zones (id, zone_name, is_staff_only) VALUES
 (2, 'Zone B (Quiet Zone)',0),
 (3, 'Staff Only Area',    1);
 
--- 5.4 Seed users (all passwords: 'password123')
--- bcrypt hash (cost=10): $2a$10$UXnZ2vVl6.4G4K/rW4u2ueZ6j.aWwN8rQe27c9Z7Oq23TjU9H15xG
+-- 5.4 Seed users (default passwords: 'password123'; officer1: 'Officer@123'; agency1: 'Agency@123')
+-- bcrypt hash (cost=10): $2a$10$I02pZPZgjGErR1GF1HkQLOG.SR6Q8.Z.Kf7//Y164FGh4IfE95mNi
 INSERT INTO users (id, username, password_hash, email, first_name, last_name, student_id, role_id, penalty_points, is_blacklisted) VALUES
-(1, 'admin',      '$2a$10$UXnZ2vVl6.4G4K/rW4u2ueZ6j.aWwN8rQe27c9Z7Oq23TjU9H15xG', 'admin@canteen.ac.th',      'Somchai',  'Admin',    NULL,       5, 100, 0),
-(2, 'student1',   '$2a$10$UXnZ2vVl6.4G4K/rW4u2ueZ6j.aWwN8rQe27c9Z7Oq23TjU9H15xG', 'student1@canteen.ac.th',   'Somsak',   'Jaidee',   'STD69001', 1, 100, 0),
-(3, 'student2',   '$2a$10$UXnZ2vVl6.4G4K/rW4u2ueZ6j.aWwN8rQe27c9Z7Oq23TjU9H15xG', 'student2@canteen.ac.th',   'Somsri',   'Rakdee',   'STD69002', 1,  40, 1),
-(4, 'teacher1',   '$2a$10$UXnZ2vVl6.4G4K/rW4u2ueZ6j.aWwN8rQe27c9Z7Oq23TjU9H15xG', 'teacher1@canteen.ac.th',   'Anong',    'Kru',      NULL,       2, 100, 0),
-(5, 'cleaner1',   '$2a$10$UXnZ2vVl6.4G4K/rW4u2ueZ6j.aWwN8rQe27c9Z7Oq23TjU9H15xG', 'cleaner1@canteen.ac.th',   'Prapas',   'Cleaner',  NULL,       3, 100, 0),
-(6, 'inspector1', '$2a$10$UXnZ2vVl6.4G4K/rW4u2ueZ6j.aWwN8rQe27c9Z7Oq23TjU9H15xG', 'inspector1@canteen.ac.th', 'Chaiwat',  'Inspector',NULL,       4, 100, 0),
-(7, 'executive1', '$2a$10$UXnZ2vVl6.4G4K/rW4u2ueZ6j.aWwN8rQe27c9Z7Oq23TjU9H15xG', 'exec1@canteen.ac.th',      'Director', 'Prasert',  NULL,       6, 100, 0);
+(1, 'admin',      '$2a$10$I02pZPZgjGErR1GF1HkQLOG.SR6Q8.Z.Kf7//Y164FGh4IfE95mNi', 'admin@canteen.ac.th',      'Somchai',  'Admin',    NULL,       5, 100, 0),
+(2, 'student1',   '$2a$10$I02pZPZgjGErR1GF1HkQLOG.SR6Q8.Z.Kf7//Y164FGh4IfE95mNi', 'student1@canteen.ac.th',   'Somsak',   'Jaidee',   'STD69001', 1, 100, 0),
+(3, 'student2',   '$2a$10$I02pZPZgjGErR1GF1HkQLOG.SR6Q8.Z.Kf7//Y164FGh4IfE95mNi', 'student2@canteen.ac.th',   'Somsri',   'Rakdee',   'STD69002', 1,  40, 1),
+(4, 'teacher1',   '$2a$10$I02pZPZgjGErR1GF1HkQLOG.SR6Q8.Z.Kf7//Y164FGh4IfE95mNi', 'teacher1@canteen.ac.th',   'Anong',    'Kru',      NULL,       2, 100, 0),
+(5, 'cleaner1',   '$2a$10$I02pZPZgjGErR1GF1HkQLOG.SR6Q8.Z.Kf7//Y164FGh4IfE95mNi', 'cleaner1@canteen.ac.th',   'Prapas',   'Cleaner',  NULL,       3, 100, 0),
+(6, 'inspector1', '$2a$10$I02pZPZgjGErR1GF1HkQLOG.SR6Q8.Z.Kf7//Y164FGh4IfE95mNi', 'inspector1@canteen.ac.th', 'Chaiwat',  'Inspector',NULL,       4, 100, 0),
+(7, 'executive1', '$2a$10$I02pZPZgjGErR1GF1HkQLOG.SR6Q8.Z.Kf7//Y164FGh4IfE95mNi', 'exec1@canteen.ac.th',      'Director', 'Prasert',  NULL,       6, 100, 0),
+(8, 'officer1',   '$2a$10$fRRy66nq2Tk2UcL8HWqL0OJN6Dx.CDPwIteAgP5t/zjOuwjsVo.yy', 'officer1@canteen.ac.th',  'Piriya',   'Officer',  NULL,       7, 100, 0),
+(9, 'agency1',    '$2a$10$mD5sBgt/eFfLbHSUaS/Z9ONs5T727vSC1RhrQvOlOgQmVw1KeO/G.', 'agency1@canteen.ac.th',   'Supawadee','Agency',   NULL,       8, 100, 0);
 
 -- 5.5 Seed tables (8 tables across 3 zones)
 INSERT INTO `tables` (id, table_number, zone_id, layout_x, layout_y, qr_code_hash, status) VALUES

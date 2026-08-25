@@ -56,12 +56,50 @@ app.get('/api/status', async (req, res, next) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// Future route registrations go here (Phase 4+):
-//
-//   const authRoutes = require('./routes/authRoutes');
-//   app.use('/api/auth', authRoutes);
-//
+// Phase 5, 6 & 7 Route Registrations: Booking, Complaint, Inspector & Report APIs
 // ─────────────────────────────────────────────────────────────
+const authRoutes = require('./routes/authRoutes');
+const bookingRoutes = require('./routes/bookingRoutes');
+const complaintRoutes = require('./routes/complaintRoutes');
+const inspectorRoutes = require('./routes/inspectorRoutes');
+const reportRoutes = require('./routes/reportRoutes');
+const tableRoutes = require('./routes/tableRoutes');
+
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/users/bookings', bookingRoutes);
+app.use('/api/v1', complaintRoutes);
+app.use('/api/v1', inspectorRoutes);
+app.use('/api/v1', reportRoutes);
+app.use('/api/v1', tableRoutes);
+
+// SSE Events Stream Route (Phase 12)
+const sseService = require('./services/sseService');
+const { verifyToken } = require('./middlewares/authMiddleware');
+app.get('/api/v1/notifications/stream', verifyToken, sseService.registerClient);
+
+
+
+
+// ─────────────────────────────────────────────────────────────
+// Production Static Frontend Serving (Single Container Mode)
+// ─────────────────────────────────────────────────────────────
+const path = require('path');
+const fs   = require('fs');
+const publicDir = path.join(__dirname, '../public');
+
+if (fs.existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    const indexPath = path.join(publicDir, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+    return next();
+  });
+}
 
 // ─────────────────────────────────────────────────────────────
 // 404 Handler — must be after all valid routes
@@ -93,6 +131,10 @@ app.use(errorHandler);
 
   // Block startup until MySQL is reachable (retry loop in database.js)
   await connectWithRetry();
+
+  // Initialize and start background cron jobs (Phase 6: Auto-release expired bookings)
+  const { startCronJobs } = require('./services/cronService');
+  startCronJobs();
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ [Server] Express server listening on port ${PORT}`);

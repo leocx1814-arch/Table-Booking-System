@@ -47,17 +47,19 @@ services:
     container_name: booking_backend_container
     restart: always
     ports:
-      - "${PORT}:${PORT}"
+      - "${PORT:-5001}:${PORT:-5001}"
     environment:
-      PORT: ${PORT}
-      NODE_ENV: ${NODE_ENV}
-      MYSQL_HOST: ${MYSQL_HOST}
-      MYSQL_PORT: ${MYSQL_PORT}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      PORT: ${PORT:-5001}
+      NODE_ENV: ${NODE_ENV:-development}
+      MYSQL_HOST: ${MYSQL_HOST:-db}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-booking_db}
+      MYSQL_USER: ${MYSQL_USER:-booking_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-booking_pass}
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_tablebook_2026_change_in_production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      CHOKIDAR_USEPOLLING: "true"
+
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -74,10 +76,12 @@ services:
     container_name: booking_frontend_container
     restart: always
     ports:
-      - "${VITE_PORT}:${VITE_PORT}"
+      - "${VITE_PORT:-5173}:${VITE_PORT:-5173}"
     environment:
-      VITE_PORT: ${VITE_PORT}
-      VITE_API_URL: ${VITE_API_URL}
+      VITE_PORT: ${VITE_PORT:-5173}
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:5001}
+      CHOKIDAR_USEPOLLING: "true"
+
     volumes:
       - ./frontend:/app
       - /app/node_modules

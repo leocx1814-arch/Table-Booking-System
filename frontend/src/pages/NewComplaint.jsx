@@ -1,0 +1,262 @@
+import React, { useEffect, useState } from 'react';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Typography from '@mui/material/Typography';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
+import MenuItem from '@mui/material/MenuItem';
+import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
+import { useAuth } from '../hooks/useAuth.jsx';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+
+const TABLE_OPTIONS = [
+  { id: 1, label: 'T-01' },
+  { id: 2, label: 'T-02' },
+  { id: 3, label: 'T-03' },
+  { id: 4, label: 'T-04' },
+  { id: 5, label: 'T-05' },
+  { id: 6, label: 'T-06' },
+  { id: 7, label: 'T-07' },
+  { id: 8, label: 'T-08' },
+];
+
+const DEFAULT_COMPLAINT_TYPES = [
+  { id: 1, type_name: 'table_hogging', default_penalty_points: 20 },
+  { id: 2, type_name: 'overstay', default_penalty_points: 10 },
+  { id: 3, type_name: 'table_damage', default_penalty_points: 50 },
+  { id: 4, type_name: 'hygiene', default_penalty_points: 15 },
+];
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('ไม่สามารถอ่านไฟล์รูปภาพได้'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function compressImage(file) {
+  const dataUrl = await readFileAsDataUrl(file);
+  const image = new Image();
+  image.src = dataUrl;
+  await image.decode();
+
+  const maxWidth = 1200;
+  const scale = Math.min(1, maxWidth / image.width);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.floor(image.width * scale));
+  canvas.height = Math.max(1, Math.floor(image.height * scale));
+
+  const context = canvas.getContext('2d');
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  return canvas.toDataURL('image/jpeg', 0.82);
+}
+
+export default function NewComplaint() {
+  const { token } = useAuth();
+  const [complaintTypes, setComplaintTypes] = useState(DEFAULT_COMPLAINT_TYPES);
+  const [tableId, setTableId] = useState('');
+  const [complaintTypeId, setComplaintTypeId] = useState('');
+  const [description, setDescription] = useState('');
+  const [imagePreview, setImagePreview] = useState('');
+  const [loadingCategories, setLoadingCategories] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    const loadComplaintTypes = async () => {
+      setLoadingCategories(true);
+      try {
+        const response = await fetch(`${API_URL}/api/v1/complaint-categories`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('ไม่สามารถโหลดประเภทข้อร้องเรียนได้');
+        }
+
+        const resData = await response.json();
+        if (resData.success && Array.isArray(resData.data)) {
+          setComplaintTypes(resData.data);
+        }
+      } catch (err) {
+        setFeedback({ severity: 'error', message: err.message || 'ไม่สามารถโหลดประเภทข้อร้องเรียนได้' });
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+
+    loadComplaintTypes();
+  }, [token]);
+
+  const handleImageChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      const compressedImage = await compressImage(file);
+      setImagePreview(compressedImage);
+      setFeedback({ severity: 'success', message: 'รูปภาพถูกประมวลผลและพร้อมส่งแล้ว' });
+    } catch (err) {
+      setFeedback({ severity: 'error', message: err.message || 'ไม่สามารถประมวลผลรูปภาพได้' });
+    }
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setFeedback(null);
+
+    if (!tableId || !complaintTypeId || !description.trim()) {
+      setFeedback({ severity: 'error', message: 'กรุณากรอกข้อมูลให้ครบถ้วนก่อนส่งคำร้องเรียน' });
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/v1/complaints`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          table_id: Number(tableId),
+          complaint_type_id: Number(complaintTypeId),
+          description: description.trim(),
+          evidence_image_path: imagePreview || null,
+          is_anonymous: false,
+        }),
+      });
+
+      const resData = await response.json();
+      if (!response.ok || !resData.success) {
+        throw new Error(resData.error?.message || 'ส่งข้อร้องเรียนไม่สำเร็จ');
+      }
+
+      setFeedback({ severity: 'success', message: 'ส่งข้อร้องเรียนเรียบร้อยแล้ว' });
+      setTableId('');
+      setComplaintTypeId('');
+      setDescription('');
+      setImagePreview('');
+      event.target.reset();
+    } catch (err) {
+      setFeedback({ severity: 'error', message: err.message || 'ส่งข้อร้องเรียนไม่สำเร็จ' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Box sx={{ p: 1, maxWidth: 700, mx: 'auto' }}>
+      <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
+        แจ้งเรื่องร้องเรียน / รายงานปัญหา
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        รายงานปัญหาโต๊ะสกปรก โต๊ะชำรุด หรือการนั่งกั๊กที่นั่งเกินเวลา
+      </Typography>
+
+      <Card
+        sx={{
+          background: 'rgba(25, 30, 38, 0.65)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.06)',
+          borderRadius: 4,
+          boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+        }}
+      >
+        <CardContent sx={{ p: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {feedback && (
+            <Alert severity={feedback.severity} sx={{ borderRadius: 2 }}>
+              {feedback.message}
+            </Alert>
+          )}
+
+          <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              select
+              label="ประเภทข้อร้องเรียน"
+              value={complaintTypeId}
+              onChange={(event) => setComplaintTypeId(event.target.value)}
+              fullWidth
+              disabled={loadingCategories}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: 'rgba(255,255,255,0.02)',
+                },
+              }}
+            >
+              {complaintTypes.map((option) => (
+                <MenuItem key={option.id} value={option.id}>
+                  {option.type_name ? `${option.type_name}` : option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              select
+              label="เลือกหมายเลขโต๊ะ"
+              value={tableId}
+              onChange={(event) => setTableId(event.target.value)}
+              fullWidth
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: 'rgba(255,255,255,0.02)',
+                },
+              }}
+            >
+              {TABLE_OPTIONS.map((option) => (
+                <MenuItem key={option.id} value={option.id}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              label="รายละเอียดเพิ่มเติม"
+              variant="outlined"
+              multiline
+              rows={4}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              fullWidth
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: 'rgba(255,255,255,0.02)',
+                },
+              }}
+            />
+
+            <Button variant="outlined" color="secondary" component="label" fullWidth sx={{ borderStyle: 'dashed', py: 1.5 }}>
+              📷 อัปโหลดรูปภาพหลักฐาน
+              <input hidden accept="image/*" type="file" onChange={handleImageChange} />
+            </Button>
+
+            {imagePreview && (
+              <Box sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <img src={imagePreview} alt="preview" style={{ width: '100%', display: 'block' }} />
+              </Box>
+            )}
+
+            <Button variant="contained" color="primary" size="large" fullWidth type="submit" disabled={submitting}>
+              {submitting ? <CircularProgress size={24} color="inherit" /> : 'ส่งข้อร้องเรียน'}
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+    </Box>
+  );
+}

@@ -5,7 +5,13 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "test:tables":   "node --test tests/tableRoutes.test.js",
+    "test:auth":     "node --test tests/auth.test.js",
+    "test:booking":  "node --test tests/booking.test.js",
+    "test:complaint": "node --test tests/complaint.test.js",
+    "test:report":   "node --test tests/report.test.js",
+    "test:all":      "node --test tests/tableRoutes.test.js tests/auth.test.js tests/booking.test.js tests/complaint.test.js tests/report.test.js"
   },
   "engines": {
     "node": ">=20.0.0"
