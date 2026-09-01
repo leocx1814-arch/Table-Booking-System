@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
+import ListItemText from '@mui/material/ListItemText';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useAuth } from '../hooks/useAuth.jsx';
@@ -24,11 +25,24 @@ const TABLE_OPTIONS = [
 ];
 
 const DEFAULT_COMPLAINT_TYPES = [
-  { id: 1, type_name: 'table_hogging', default_penalty_points: 20 },
-  { id: 2, type_name: 'overstay', default_penalty_points: 10 },
-  { id: 3, type_name: 'table_damage', default_penalty_points: 50 },
-  { id: 4, type_name: 'hygiene', default_penalty_points: 15 },
+  { id: 1, type_name: 'ถูกแย่งนั่ง / นั่งกั๊กโต๊ะ (เช่น มีคนนั่งอยู่แล้วทั้งที่จองไว้ หรือเอาของมาวางกั๊กทิ้งไว้)', default_penalty_points: 20 },
+  { id: 2, type_name: 'ระบบมีปัญหา / สแกนไม่ได้ (เช่น สแกน QR Code ไม่ผ่าน, แอปเด้ง, ระบบไม่อัปเดตสถานะ)', default_penalty_points: 0 },
+  { id: 3, type_name: 'อุปกรณ์ชำรุด / ไม่ปลอดภัย (เช่น โต๊ะเก้าอี้โยกเยก ชำรุด หรือมีขอบแหลมคม)', default_penalty_points: 0 },
+  { id: 4, type_name: 'โต๊ะไม่สะอาด / มีขยะ (เช่น เศษอาหาร คราบน้ำ ขยะที่ผู้ใช้ก่อนหน้าทิ้งไว้)', default_penalty_points: 15 },
+  { id: 5, type_name: 'อื่นๆ / ข้อเสนอแนะ (ช่องทางสำหรับพิมพ์รายละเอียดเพิ่มเติม หรือแจ้งเรื่องทั่วไป)', default_penalty_points: 0 },
 ];
+
+/**
+ * แมปชื่อสั้น (label) และคำอธิบาย (hint) สำหรับแสดงผลใน dropdown
+ * โดยใช้ complaint_type id เป็น key เพื่อแยก UI label ออกจาก type_name ในฐานข้อมูล
+ */
+const COMPLAINT_TYPE_DISPLAY = {
+  1: { label: 'ถูกแย่งนั่ง / นั่งกั๊กโต๊ะ',               hint: 'มีคนนั่งอยู่แล้วทั้งที่จองไว้ หรือเอาของมาวางกั๊กทิ้งไว้' },
+  2: { label: 'ระบบมีปัญหา / สแกนไม่ได้',                 hint: 'สแกน QR Code ไม่ผ่าน, แอปเด้ง, ระบบไม่อัปเดตสถานะ' },
+  3: { label: 'อุปกรณ์ชำรุด / ไม่ปลอดภัย',               hint: 'โต๊ะเก้าอี้โยกเยก ชำรุด หรือมีขอบแหลมคม' },
+  4: { label: 'โต๊ะไม่สะอาด / มีขยะ',                    hint: 'เศษอาหาร คราบน้ำ หรือขยะที่ผู้ใช้ก่อนหน้าทิ้งไว้' },
+  5: { label: 'อื่นๆ / ข้อเสนอแนะ',                       hint: 'พิมพ์รายละเอียดเพิ่มเติม หรือแจ้งเรื่องทั่วไป' },
+};
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -193,17 +207,34 @@ export default function NewComplaint() {
               onChange={(event) => setComplaintTypeId(event.target.value)}
               fullWidth
               disabled={loadingCategories}
+              SelectProps={{
+                renderValue: (selected) => {
+                  if (!selected) return '';
+                  const display = COMPLAINT_TYPE_DISPLAY[selected];
+                  if (display) return display.label;
+                  const found = complaintTypes.find((t) => t.id === selected);
+                  return found ? (found.type_name || found.label) : '';
+                },
+              }}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   backgroundColor: 'rgba(255,255,255,0.02)',
                 },
               }}
             >
-              {complaintTypes.map((option) => (
-                <MenuItem key={option.id} value={option.id}>
-                  {option.type_name ? `${option.type_name}` : option.label}
-                </MenuItem>
-              ))}
+              {complaintTypes.map((option) => {
+                const display = COMPLAINT_TYPE_DISPLAY[option.id];
+                return (
+                  <MenuItem key={option.id} value={option.id} sx={{ py: 1.5, alignItems: 'flex-start' }}>
+                    <ListItemText
+                      primary={display ? display.label : (option.type_name || option.label)}
+                      secondary={display ? display.hint : null}
+                      primaryTypographyProps={{ fontWeight: 600, fontSize: '0.9rem' }}
+                      secondaryTypographyProps={{ fontSize: '0.75rem', color: 'text.secondary', whiteSpace: 'normal' }}
+                    />
+                  </MenuItem>
+                );
+              })}
             </TextField>
 
             <TextField

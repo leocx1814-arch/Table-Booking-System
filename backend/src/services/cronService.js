@@ -4,8 +4,20 @@ const cron = require('node-cron');
 const { pool } = require('../config/database');
 
 /**
+ * Helper: fetch a system setting value from DB with a fallback default.
+ */
+async function getSettingValue(connection, key, defaultValue) {
+  const [[row]] = await connection.query(
+    'SELECT setting_value FROM system_settings WHERE setting_key = ?',
+    [key]
+  );
+  return row ? row.setting_value : defaultValue;
+}
+
+/**
  * Periodically scan and auto-release pending bookings that exceeded their grace period expiration.
  * Deducts 5 penalty points for no-show and auto-blacklists if penalty points drop below 50.
+ * Also applies a temporary no-show ban if user exceeds noshow_weekly_limit within 7 days.
  */
 async function autoReleaseExpiredBookings() {
   const connection = await pool.getConnection();
@@ -29,6 +41,12 @@ async function autoReleaseExpiredBookings() {
     console.log(`⏰ [CronService] Processing ${expiredBookings.length} expired pending booking(s)...`);
 
     const releasedTables = [];
+
+    // Read no-show policy settings
+    const noshowLimitStr = await getSettingValue(connection, 'noshow_weekly_limit', '3');
+    const noshowLimit = parseInt(noshowLimitStr, 10);
+    const noshowBanDaysStr = await getSettingValue(connection, 'noshow_temp_ban_days', '3');
+    const noshowBanDays = parseInt(noshowBanDaysStr, 10);
 
     for (const booking of expiredBookings) {
       const { booking_id, user_id, table_id } = booking;
@@ -67,13 +85,17 @@ async function autoReleaseExpiredBookings() {
         [user_id, booking_id, -PENALTY_DEDUCTION]
       );
 
-      // Check if user's remaining points dropped below 50 and auto-blacklist
+      // Re-fetch user state after deduction
       const [[user]] = await connection.query(
         'SELECT penalty_points, is_blacklisted FROM users WHERE id = ?',
         [user_id]
       );
 
+      // Check 1: penalty-points-triggered permanent blacklist (< 50 points)
       if (user && user.penalty_points < 50 && user.is_blacklisted === 0) {
+        const blacklistDaysStr = await getSettingValue(connection, 'blacklist_duration_days', '7');
+        const blacklistDays = parseInt(blacklistDaysStr, 10);
+
         await connection.query(
           'UPDATE users SET is_blacklisted = 1 WHERE id = ?',
           [user_id]
@@ -81,10 +103,38 @@ async function autoReleaseExpiredBookings() {
 
         await connection.query(
           `INSERT INTO blacklists (user_id, banned_at, banned_until, reason, created_by_admin_id, is_active)
-           VALUES (?, NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY), 'Auto-blacklisted: penalty points fell below 50', ?, 1)`,
-          [user_id, user_id]
+           VALUES (?, NOW(), DATE_ADD(NOW(), INTERVAL ? DAY), 'Auto-blacklisted: penalty points fell below 50', ?, 1)`,
+          [user_id, blacklistDays, user_id]
         );
-        console.log(`🚨 [CronService] User ID ${user_id} auto-blacklisted due to low penalty points (${user.penalty_points})`);
+        console.log(`🚨 [CronService] User ID ${user_id} auto-blacklisted (low points: ${user.penalty_points})`);
+        continue; // Already blacklisted — skip no-show temp ban check
+      }
+
+      // Check 2: no-show-count-triggered temporary ban
+      if (user && user.is_blacklisted === 0) {
+        const [[noshowRow]] = await connection.query(
+          `SELECT COUNT(*) AS cnt FROM bookings
+           WHERE user_id = ? AND status = 'expired'
+             AND booked_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)`,
+          [user_id]
+        );
+
+        const weeklyNoshow = noshowRow.cnt;
+        if (weeklyNoshow >= noshowLimit) {
+          await connection.query(
+            'UPDATE users SET is_blacklisted = 1 WHERE id = ?',
+            [user_id]
+          );
+
+          await connection.query(
+            `INSERT INTO blacklists (user_id, banned_at, banned_until, reason, created_by_admin_id, is_active)
+             VALUES (?, NOW(), DATE_ADD(NOW(), INTERVAL ? DAY),
+               'Auto-temp-banned: no-show ${weeklyNoshow} times within 7 days (limit: ${noshowLimit})',
+               ?, 1)`,
+            [user_id, noshowBanDays, user_id]
+          );
+          console.log(`⚠️ [CronService] User ID ${user_id} temp-banned for ${noshowBanDays} days (no-show: ${weeklyNoshow}/${noshowLimit} this week)`);
+        }
       }
     }
 
@@ -96,7 +146,7 @@ async function autoReleaseExpiredBookings() {
       broadcastTableUpdate(item.tableId);
       broadcast('notification', {
         userId: item.userId,
-        message: 'การจองโต๊ะของคุณถูกยกเลิกแล้ว เนื่องจากเช็คอินไม่ทันภายในกำหนด 10 นาที (หัก 5 คะแนน)',
+        message: 'การจองโต๊ะของคุณถูกยกเลิกแล้ว เนื่องจากเช็คอินไม่ทันภายในกำหนด (หัก 5 คะแนน)',
       });
     }
 

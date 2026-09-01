@@ -5,7 +5,35 @@ const mysql = require('mysql2/promise');
 // ─────────────────────────────────────────────────────────────
 // MySQL Connection Pool Configuration
 // Host must use the Docker service name 'db' (not 'localhost')
+// For Cloud / TiDB / Remote DBs requiring TLS/SSL:
+// Set MYSQL_SSL=true (or auto-detected for known cloud hosts).
 // ─────────────────────────────────────────────────────────────
+function getSslConfig() {
+  const sslEnv = process.env.MYSQL_SSL ? process.env.MYSQL_SSL.toLowerCase().trim() : '';
+  const host = process.env.MYSQL_HOST || '';
+  const isCloudHost = host.includes('tidbcloud.com') ||
+                      host.includes('psdb.cloud') ||
+                      host.includes('aivencloud.com');
+
+  if (sslEnv === 'true' || sslEnv === '1' || (!sslEnv && isCloudHost)) {
+    const rejectUnauthorized = process.env.MYSQL_SSL_REJECT_UNAUTHORIZED !== 'false';
+    const config = { rejectUnauthorized, minVersion: 'TLSv1.2' };
+    if (process.env.MYSQL_SSL_CA) {
+      config.ca = process.env.MYSQL_SSL_CA;
+    }
+    return config;
+  }
+
+  if (process.env.MYSQL_SSL_CA) {
+    return {
+      ca: process.env.MYSQL_SSL_CA,
+      rejectUnauthorized: process.env.MYSQL_SSL_REJECT_UNAUTHORIZED !== 'false',
+    };
+  }
+
+  return undefined;
+}
+
 const pool = mysql.createPool({
   host:              process.env.MYSQL_HOST     || 'db',
   port:              parseInt(process.env.MYSQL_PORT || '3306', 10),
@@ -16,6 +44,7 @@ const pool = mysql.createPool({
   connectionLimit:    10,
   queueLimit:         0,
   timezone:           '+07:00',   // Asia/Bangkok — prevents timestamp shift bugs
+  ssl:                getSslConfig(),
 });
 
 /**

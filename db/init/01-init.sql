@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS `tables` (
 -- 5. complaint_types — categories of table-related complaints with default penalty deductions
 CREATE TABLE IF NOT EXISTS complaint_types (
     id                    INT UNSIGNED  AUTO_INCREMENT PRIMARY KEY,
-    type_name             VARCHAR(50)   NOT NULL UNIQUE,
+    type_name             VARCHAR(255)  NOT NULL UNIQUE,
     default_penalty_points INT          NOT NULL DEFAULT 20
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -242,7 +242,11 @@ INSERT INTO system_settings (setting_key, setting_value, description) VALUES
 ('min_points_to_book',          '50',          'Minimum penalty points required to place a booking'),
 ('gps_radius_meters',           '50',          'Maximum allowed distance (meters) from canteen center for GPS check-in'),
 ('canteen_lat',                 '13.736717',   'Latitude of canteen center point used for GPS check-in validation'),
-('canteen_lng',                 '100.523186',  'Longitude of canteen center point used for GPS check-in validation');
+('canteen_lng',                 '100.523186',  'Longitude of canteen center point used for GPS check-in validation'),
+('max_bookings_per_day',        '2',           'Max bookings a user can make per calendar day (e.g. 2 = lunch + dinner)'),
+('max_advance_booking_minutes', '120',         'Max minutes in advance a user can book a table (e.g. 120 = 2 hours)'),
+('noshow_weekly_limit',         '3',           'Max no-shows within 7 days before temp ban triggers'),
+('noshow_temp_ban_days',        '3',           'Days a user is suspended after exceeding the weekly no-show limit');
 
 -- 5.3 Seed canteen_zones
 INSERT INTO canteen_zones (id, zone_name, is_staff_only) VALUES
@@ -276,10 +280,11 @@ INSERT INTO `tables` (id, table_number, zone_id, layout_x, layout_y, qr_code_has
 
 -- 5.6 Seed complaint_types
 INSERT INTO complaint_types (id, type_name, default_penalty_points) VALUES
-(1, 'table_hogging', 20),
-(2, 'overstay', 10),
-(3, 'table_damage', 50),
-(4, 'hygiene', 15);
+(1, 'ถูกแย่งนั่ง / นั่งกั๊กโต๊ะ (เช่น มีคนนั่งอยู่แล้วทั้งที่จองไว้ หรือเอาของมาวางกั๊กทิ้งไว้)', 20),
+(2, 'ระบบมีปัญหา / สแกนไม่ได้ (เช่น สแกน QR Code ไม่ผ่าน, แอปเด้ง, ระบบไม่อัปเดตสถานะ)', 0),
+(3, 'อุปกรณ์ชำรุด / ไม่ปลอดภัย (เช่น โต๊ะเก้าอี้โยกเยก ชำรุด หรือมีขอบแหลมคม)', 0),
+(4, 'โต๊ะไม่สะอาด / มีขยะ (เช่น เศษอาหาร คราบน้ำ ขยะที่ผู้ใช้ก่อนหน้าทิ้งไว้)', 15),
+(5, 'อื่นๆ / ข้อเสนอแนะ (ช่องทางสำหรับพิมพ์รายละเอียดเพิ่มเติม หรือแจ้งเรื่องทั่วไป)', 0);
 
 -- 5.7 Seed bookings
 INSERT INTO bookings (id, user_id, table_id, booked_at, grace_expired_at, checked_in_at, checked_out_at, expected_end_at, status) VALUES
