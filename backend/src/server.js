@@ -29,13 +29,13 @@ app.use(express.json({ limit: '10mb' }));   // generous limit for future image u
 app.use(express.urlencoded({ extended: true }));
 
 // ─────────────────────────────────────────────────────────────
-// Health-check Endpoint — /api/status
-// Used by Docker healthcheck and frontend status indicator.
+// Health-check Endpoints — /api/status, /api/health, /health
+// Used by Docker healthcheck, cloud platforms, and status indicator.
 // Does NOT require authentication (public route).
 // ─────────────────────────────────────────────────────────────
 const { pool } = require('./config/database');
 
-app.get('/api/status', async (req, res, next) => {
+const healthHandler = async (req, res, next) => {
   try {
     const [[row]] = await pool.query('SELECT 1 + 1 AS result');
     return res.json({
@@ -53,7 +53,11 @@ app.get('/api/status', async (req, res, next) => {
     res.statusCode = 503;
     return next(err);
   }
-});
+};
+
+app.get('/api/status', healthHandler);
+app.get('/api/health', healthHandler);
+app.get('/health', healthHandler);
 
 // ─────────────────────────────────────────────────────────────
 // Phase 5, 6 & 7 Route Registrations: Booking, Complaint, Inspector & Report APIs
