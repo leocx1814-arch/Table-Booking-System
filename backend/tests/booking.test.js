@@ -17,6 +17,23 @@
 
 const test   = require('node:test');
 const assert = require('node:assert/strict');
+const { pool } = require('../src/config/database');
+
+test.before(async () => {
+  try {
+    await pool.query('DELETE FROM bookings WHERE user_id IN (2, 3) AND DATE(booked_at) = CURDATE()');
+  } catch (e) {
+    // Ignore
+  }
+});
+
+test.after(async () => {
+  try {
+    await pool.end();
+  } catch (e) {
+    // Ignore
+  }
+});
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5001';
 

@@ -69,12 +69,17 @@ const inspectorRoutes = require('./routes/inspectorRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const tableRoutes = require('./routes/tableRoutes');
 
+const settingsRoutes = require('./routes/settingsRoutes');
+const adminUserRoutes = require('./routes/adminUserRoutes');
+
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users/bookings', bookingRoutes);
 app.use('/api/v1', complaintRoutes);
 app.use('/api/v1', inspectorRoutes);
 app.use('/api/v1', reportRoutes);
 app.use('/api/v1', tableRoutes);
+app.use('/api/v1', settingsRoutes);
+app.use('/api/v1/admin', adminUserRoutes);
 
 // SSE Events Stream Route (Phase 12)
 const sseService = require('./services/sseService');
